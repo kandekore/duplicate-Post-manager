@@ -4,12 +4,10 @@
  * Description: Find and manage duplicate posts by title or slug. Allows deletion and 301 redirection with .htaccess code generation.
  * Version: 2.0
  * Author: Darren Kandekore
- * Author URI: https://github.com/dkandekore
- * License: GPL2
+ * Author URI: https://github.com/dkandekore    
+ * Text Domain: duplicate-post-manager
  * @package DuplicatePostManager
- * This file is part of the Duplicate Post Manager plugin.
- * It provides an admin interface to scan for duplicate posts, delete them, and set up
- * 301 redirects to avoid broken links. It also generates .htaccess rules for the redirects
+ * @since 2.0
  */
 
 if (!defined('ABSPATH')) exit;
