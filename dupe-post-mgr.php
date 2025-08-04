@@ -3,7 +3,10 @@
  * Plugin Name: Duplicate Post Manager
  * Description: Find and manage duplicate posts by title or slug. Allows deletion and 301 redirection with .htaccess code generation.
  * Version: 1.0
- * Author: Your Name
+ * Author: Darren Kandekore
+ * License: GPL2
+ * Text Domain: duplicate-post-manager
+ * Domain Path: /languages
  */
 
 if (!defined('ABSPATH')) exit;
@@ -31,29 +34,62 @@ function dpm_admin_page() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         global $wpdb;
 
-        $duplicates = $wpdb->get_results("SELECT post_title, post_name, COUNT(*) as count
+        $duplicate_titles = $wpdb->get_results("
+            SELECT post_title, COUNT(*) as count
             FROM {$wpdb->posts}
             WHERE post_type = 'post' AND post_status = 'publish'
-            GROUP BY post_title, post_name
+            GROUP BY post_title
             HAVING count > 1
-            ORDER BY count DESC");
+        ");
 
-        if ($duplicates) {
+        $duplicate_slugs = $wpdb->get_results("
+            SELECT post_name, COUNT(*) as count
+            FROM {$wpdb->posts}
+            WHERE post_type = 'post' AND post_status = 'publish'
+            GROUP BY post_name
+            HAVING count > 1
+        ");
+
+        if ($duplicate_titles || $duplicate_slugs) {
             echo '<h2>Duplicate Posts</h2>';
             echo '<table class="widefat fixed striped">';
-            echo '<thead><tr><th>Title</th><th>Slug</th><th>Count</th><th>Actions</th></tr></thead><tbody>';
+            echo '<thead><tr><th>Title</th><th>Slug</th><th>Actions</th></tr></thead><tbody>';
 
-            foreach ($duplicates as $dup) {
+            // Posts with duplicate titles
+            foreach ($duplicate_titles as $dup) {
                 $posts = $wpdb->get_results($wpdb->prepare(
-                    "SELECT ID, post_title, post_name FROM {$wpdb->posts} WHERE post_title = %s AND post_name = %s AND post_type = 'post' AND post_status = 'publish'",
-                    $dup->post_title, $dup->post_name
+                    "SELECT ID, post_title, post_name FROM {$wpdb->posts}
+                     WHERE post_title = %s AND post_type = 'post' AND post_status = 'publish'",
+                    $dup->post_title
                 ));
-
+                if (count($posts) < 2) continue;
                 foreach ($posts as $post) {
                     echo '<tr>';
                     echo '<td>' . esc_html($post->post_title) . '</td>';
                     echo '<td>' . esc_html($post->post_name) . '</td>';
-                    echo '<td>' . esc_html($dup->count) . '</td>';
+                    echo '<td>
+                        <form method="post" action="" style="display:inline;">
+                            <input type="hidden" name="delete_id" value="' . esc_attr($post->ID) . '">
+                            <input type="text" name="redirect_to" placeholder="Redirect URL" required style="width:300px">
+                            <button type="submit" class="button button-primary">Delete & Redirect</button>
+                        </form>
+                    </td>';
+                    echo '</tr>';
+                }
+            }
+
+            // Posts with duplicate slugs
+            foreach ($duplicate_slugs as $dup) {
+                $posts = $wpdb->get_results($wpdb->prepare(
+                    "SELECT ID, post_title, post_name FROM {$wpdb->posts}
+                     WHERE post_name = %s AND post_type = 'post' AND post_status = 'publish'",
+                    $dup->post_name
+                ));
+                if (count($posts) < 2) continue;
+                foreach ($posts as $post) {
+                    echo '<tr>';
+                    echo '<td>' . esc_html($post->post_title) . '</td>';
+                    echo '<td>' . esc_html($post->post_name) . '</td>';
                     echo '<td>
                         <form method="post" action="" style="display:inline;">
                             <input type="hidden" name="delete_id" value="' . esc_attr($post->ID) . '">
@@ -80,7 +116,7 @@ function dpm_admin_page() {
         // Delete post
         wp_delete_post($delete_id, true);
 
-        // Store redirect rule in a transient for now
+        // Store redirect rule in an option
         $redirects = get_option('dpm_redirects', []);
         $redirects[] = [
             'from' => "/$old_slug",
