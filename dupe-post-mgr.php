@@ -2,36 +2,25 @@
 /**
  * Plugin Name: Duplicate Post Manager
  * Description: Find and manage duplicate posts by title or slug. Allows deletion and 301 redirection with .htaccess code generation.
- * Version: 1.0
+ * Version: 1.1
  * Author: Darren Kandekore
  * License: GPL2
  * Text Domain: duplicate-post-manager
- * Domain Path: /languages
  */
 
 if (!defined('ABSPATH')) exit;
 
-// Admin menu
-add_action('admin_menu', function() {
-    add_menu_page(
-        'Duplicate Post Manager',
-        'Duplicate Post Manager',
-        'manage_options',
-        'duplicate-post-manager',
-        'dpm_admin_page',
-        'dashicons-admin-page',
-        80
-    );
+add_action('admin_menu', function () {
+    add_menu_page('Duplicate Post Manager', 'Duplicate Post Manager', 'manage_options', 'duplicate-post-manager', 'dpm_admin_page', 'dashicons-admin-page', 80);
 });
 
-// Admin page callback
 function dpm_admin_page() {
     echo '<div class="wrap"><h1>Duplicate Post Manager</h1>';
     echo '<form method="post">';
     submit_button('Scan for Duplicates');
     echo '</form>';
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['delete_id'])) {
         global $wpdb;
 
         $duplicate_titles = $wpdb->get_results("
@@ -63,15 +52,23 @@ function dpm_admin_page() {
                     $dup->post_title
                 ));
                 if (count($posts) < 2) continue;
+
                 foreach ($posts as $post) {
+                    $other_posts = array_filter($posts, fn($p) => $p->ID !== $post->ID);
                     echo '<tr>';
                     echo '<td>' . esc_html($post->post_title) . '</td>';
                     echo '<td>' . esc_html($post->post_name) . '</td>';
                     echo '<td>
                         <form method="post" action="" style="display:inline;">
                             <input type="hidden" name="delete_id" value="' . esc_attr($post->ID) . '">
-                            <input type="text" name="redirect_to" placeholder="Redirect URL" required style="width:300px">
-                            <button type="submit" class="button button-primary">Delete & Redirect</button>
+                            <select name="redirect_select" style="width:300px;">
+                                <option value="">-- Select redirect target --</option>';
+                    foreach ($other_posts as $target) {
+                        $url = get_permalink($target->ID);
+                        echo '<option value="' . esc_url($url) . '">' . esc_html($target->post_title) . '</option>';
+                    }
+                    echo '</select><br><input type="text" name="redirect_to" placeholder="Or enter custom URL" style="width:300px;margin-top:5px">
+                            <button type="submit" class="button button-primary" style="margin-top:5px;">Delete & Redirect</button>
                         </form>
                     </td>';
                     echo '</tr>';
@@ -86,15 +83,23 @@ function dpm_admin_page() {
                     $dup->post_name
                 ));
                 if (count($posts) < 2) continue;
+
                 foreach ($posts as $post) {
+                    $other_posts = array_filter($posts, fn($p) => $p->ID !== $post->ID);
                     echo '<tr>';
                     echo '<td>' . esc_html($post->post_title) . '</td>';
                     echo '<td>' . esc_html($post->post_name) . '</td>';
                     echo '<td>
                         <form method="post" action="" style="display:inline;">
                             <input type="hidden" name="delete_id" value="' . esc_attr($post->ID) . '">
-                            <input type="text" name="redirect_to" placeholder="Redirect URL" required style="width:300px">
-                            <button type="submit" class="button button-primary">Delete & Redirect</button>
+                            <select name="redirect_select" style="width:300px;">
+                                <option value="">-- Select redirect target --</option>';
+                    foreach ($other_posts as $target) {
+                        $url = get_permalink($target->ID);
+                        echo '<option value="' . esc_url($url) . '">' . esc_html($target->post_title) . '</option>';
+                    }
+                    echo '</select><br><input type="text" name="redirect_to" placeholder="Or enter custom URL" style="width:300px;margin-top:5px">
+                            <button type="submit" class="button button-primary" style="margin-top:5px;">Delete & Redirect</button>
                         </form>
                     </td>';
                     echo '</tr>';
@@ -107,27 +112,28 @@ function dpm_admin_page() {
         }
     }
 
-    // Handle deletion and .htaccess generation
-    if (!empty($_POST['delete_id']) && !empty($_POST['redirect_to'])) {
+    // Handle deletion and .htaccess rule storing
+    if (!empty($_POST['delete_id'])) {
         $delete_id = intval($_POST['delete_id']);
-        $redirect_to = esc_url_raw($_POST['redirect_to']);
-        $old_slug = get_post_field('post_name', $delete_id);
+        $manual_url = trim($_POST['redirect_to'] ?? '');
+        $selected_url = trim($_POST['redirect_select'] ?? '');
+        $redirect_to = esc_url_raw($manual_url ?: $selected_url);
 
-        // Delete post
-        wp_delete_post($delete_id, true);
+        if (!$redirect_to || strpos(@get_headers($redirect_to)[0], '404') !== false) {
+            echo '<div class="error"><p>Invalid or missing redirect URL. Action aborted.</p></div>';
+        } else {
+            $old_slug = get_post_field('post_name', $delete_id);
+            wp_trash_post($delete_id); // Use trash instead of permanent delete
 
-        // Store redirect rule in an option
-        $redirects = get_option('dpm_redirects', []);
-        $redirects[] = [
-            'from' => "/$old_slug",
-            'to' => $redirect_to
-        ];
-        update_option('dpm_redirects', $redirects);
+            $redirects = get_option('dpm_redirects', []);
+            $redirects[] = ['from' => "/$old_slug", 'to' => $redirect_to];
+            update_option('dpm_redirects', $redirects);
 
-        echo '<div class="updated"><p>Post deleted and redirect rule stored.</p></div>';
+            echo '<div class="updated"><p>Post moved to trash and redirect rule stored.</p></div>';
+        }
     }
 
-    // Display stored .htaccess rules
+    // Display .htaccess rules
     $redirects = get_option('dpm_redirects', []);
     if (!empty($redirects)) {
         echo '<h2>.htaccess Redirect Rules</h2><textarea rows="10" style="width:100%;font-family:monospace;">';
