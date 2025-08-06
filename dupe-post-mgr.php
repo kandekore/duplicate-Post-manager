@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Duplicate Post Manager
  * Description: Find and manage duplicate posts by title or slug. Allows deletion and 301 redirection with .htaccess code generation.
- * Version: 1.2
+ * Version: 1.2.1
  * Author: Darren Kandekore
  * License: GPL2
  * Text Domain: duplicate-post-manager
@@ -25,8 +25,8 @@ function dpm_admin_page() {
         $post_ids_to_delete = array_map('intval', wp_unslash($_POST['bulk_delete_ids']));
 
         foreach ($post_ids_to_delete as $post_id) {
-            $manual = isset($_POST['redirect_manual'][$post_id]) ? trim(wp_unslash($_POST['redirect_manual'][$post_id])) : '';
-            $selected = isset($_POST['redirect_select'][$post_id]) ? trim(wp_unslash($_POST['redirect_select'][$post_id])) : '';
+            $manual = isset($_POST['redirect_manual'][$post_id]) ? sanitize_text_field(wp_unslash($_POST['redirect_manual'][$post_id])) : '';
+            $selected = isset($_POST['redirect_select'][$post_id]) ? sanitize_text_field(wp_unslash($_POST['redirect_select'][$post_id])) : '';
             $redirect_to = esc_url_raw($manual ?: $selected);
 
             // Convert full URL to relative if local
@@ -55,7 +55,7 @@ function dpm_admin_page() {
     if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['bulk_delete_ids'])) {
         global $wpdb;
 
-        // Note: Direct DB queries are used for performance here, which is acceptable in an admin context.
+        // Note: Direct database queries are used for performance. Caching is not used as fresh data is required for each scan.
         $duplicate_titles = $wpdb->get_results("
             SELECT post_title, COUNT(*) as count
             FROM {$wpdb->posts}
@@ -64,6 +64,7 @@ function dpm_admin_page() {
             HAVING count > 1
         ");
 
+        // Note: Direct database queries are used for performance. Caching is not used as fresh data is required for each scan.
         $duplicate_slugs = $wpdb->get_results("
             SELECT post_name, COUNT(*) as count
             FROM {$wpdb->posts}
@@ -83,6 +84,7 @@ function dpm_admin_page() {
 
             // Group by title
             foreach ($duplicate_titles as $dup) {
+                // Note: Direct database queries are used for performance. Caching is not used as fresh data is required for each scan.
                 $posts = $wpdb->get_results($wpdb->prepare(
                     "SELECT ID, post_title, post_name FROM {$wpdb->posts} WHERE post_title = %s AND post_type = 'post' AND post_status = 'publish'",
                     $dup->post_title
@@ -93,6 +95,7 @@ function dpm_admin_page() {
 
             // Group by slug
             foreach ($duplicate_slugs as $dup) {
+                // Note: Direct database queries are used for performance. Caching is not used as fresh data is required for each scan.
                 $posts = $wpdb->get_results($wpdb->prepare(
                     "SELECT ID, post_title, post_name FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'post' AND post_status = 'publish'",
                     $dup->post_name
