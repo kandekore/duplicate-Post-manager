@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Duplicate Post Manager
  * Description: Find and manage duplicate posts by title or slug. Allows deletion and 301 redirection with .htaccess code generation.
- * Version: 1.2.1
+ * Version: 1.3
  * Author: Darren Kandekore
  * License: GPL2
  * Text Domain: duplicate-post-manager
@@ -34,10 +34,9 @@ function dpm_admin_page() {
                 $redirect_to = wp_make_link_relative($redirect_to);
             }
 
-            // Validate URL
-            $headers = @get_headers($redirect_to);
-            if (!$redirect_to || strpos($headers[0], '404') !== false) {
-                // Escaping the post_id for safe output.
+            // Validate URL before processing
+            $headers = $redirect_to ? @get_headers($redirect_to) : false;
+            if (!$headers || strpos($headers[0], '404') !== false) {
                 echo '<div class="error"><p>Invalid or missing redirect for post ID ' . esc_html($post_id) . '. Skipping.</p></div>';
                 continue;
             }
