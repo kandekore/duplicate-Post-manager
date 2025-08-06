@@ -1,14 +1,14 @@
 === Duplicate Post Manager ===
 Contributors: Darren Kandekore
-Tags: duplicate posts, redirect, 301, SEO, htaccess, slug, trash, bulk
+Tags: duplicate posts, redirect, 301, seo, htaccess
 Requires at least: 5.0
-Tested up to: 6.5
-Requires PHP: 7.4+
+Tested up to: 6.8.2
+Requires PHP: 7.4
 Stable tag: 1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Manage and clean up duplicate WordPress posts with ease. Delete duplicates in bulk, assign 301 redirects, and generate `.htaccess` rules — all from one simple interface.
+Manage and clean up duplicate WordPress posts with ease. Delete duplicates, assign 301 redirects, and generate `.htaccess` rules.
 
 == Description ==
 

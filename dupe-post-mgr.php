@@ -18,14 +18,15 @@ function dpm_admin_page() {
     echo '<div class="wrap"><h1>Duplicate Post Manager</h1>';
 
     // Bulk action
-    if (!empty($_POST['bulk_delete_ids'])) {
-        check_admin_referer('dpm_bulk_action');
+    if (!empty($_POST['bulk_delete_ids']) && isset($_POST['dpm_bulk_action'])) {
+        check_admin_referer('dpm_bulk_action', 'dpm_bulk_action');
 
         $redirects = get_option('dpm_redirects', []);
-        foreach ($_POST['bulk_delete_ids'] as $post_id) {
-            $post_id = intval($post_id);
-            $manual = trim($_POST['redirect_manual'][$post_id] ?? '');
-            $selected = trim($_POST['redirect_select'][$post_id] ?? '');
+        $post_ids_to_delete = array_map('intval', wp_unslash($_POST['bulk_delete_ids']));
+
+        foreach ($post_ids_to_delete as $post_id) {
+            $manual = isset($_POST['redirect_manual'][$post_id]) ? trim(wp_unslash($_POST['redirect_manual'][$post_id])) : '';
+            $selected = isset($_POST['redirect_select'][$post_id]) ? trim(wp_unslash($_POST['redirect_select'][$post_id])) : '';
             $redirect_to = esc_url_raw($manual ?: $selected);
 
             // Convert full URL to relative if local
@@ -36,7 +37,8 @@ function dpm_admin_page() {
             // Validate URL
             $headers = @get_headers($redirect_to);
             if (!$redirect_to || strpos($headers[0], '404') !== false) {
-                echo '<div class="error"><p>Invalid or missing redirect for post ID ' . $post_id . '. Skipping.</p></div>';
+                // Escaping the post_id for safe output.
+                echo '<div class="error"><p>Invalid or missing redirect for post ID ' . esc_html($post_id) . '. Skipping.</p></div>';
                 continue;
             }
 
@@ -50,9 +52,10 @@ function dpm_admin_page() {
     }
 
     // Start duplicate scan
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['bulk_delete_ids'])) {
+    if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['bulk_delete_ids'])) {
         global $wpdb;
 
+        // Note: Direct DB queries are used for performance here, which is acceptable in an admin context.
         $duplicate_titles = $wpdb->get_results("
             SELECT post_title, COUNT(*) as count
             FROM {$wpdb->posts}
@@ -71,7 +74,7 @@ function dpm_admin_page() {
 
         if ($duplicate_titles || $duplicate_slugs) {
             echo '<form method="post">';
-            wp_nonce_field('dpm_bulk_action');
+            wp_nonce_field('dpm_bulk_action', 'dpm_bulk_action');
             echo '<h2>Duplicate Posts</h2>';
             echo '<table class="widefat fixed striped">';
             echo '<thead><tr><th><input type="checkbox" onclick="jQuery(\'.dpm-check\').prop(\'checked\', this.checked);"></th><th>Title</th><th>Slug</th><th>Redirect To</th><th>Custom URL</th></tr></thead><tbody>';
@@ -131,10 +134,11 @@ function dpm_admin_page() {
     // Show .htaccess block
     $redirects = get_option('dpm_redirects', []);
     if (!empty($redirects)) {
-        echo '<h2>.htaccess Redirect Rules</h2><textarea rows="10" style="width:100%;font-family:monospace;">';
+        echo '<h2>.htaccess Redirect Rules</h2><textarea readonly rows="10" style="width:100%;font-family:monospace;">';
         echo "# BEGIN Post Redirects\n";
         foreach ($redirects as $rule) {
-            echo "Redirect 301 {$rule['from']} {$rule['to']}\n";
+            // Escaping the rule data for safe output.
+            echo "Redirect 301 " . esc_html($rule['from']) . " " . esc_html($rule['to']) . "\n";
         }
         echo "# END Post Redirects";
         echo '</textarea>';
