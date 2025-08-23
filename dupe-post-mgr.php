@@ -5,7 +5,7 @@
  * Version: 1.3
  * Author: Darren Kandekore
  * License: GPL2
- * Text Domain: duplicate-post-manager
+ * Text Domain: kandeshop-duplicate-post-manager
  */
 
 if (!defined('ABSPATH')) exit;
