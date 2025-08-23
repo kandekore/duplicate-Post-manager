@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Duplicate Post Manager
+ * Plugin Name: Kandeshop Duplicate Post Manager
  * Description: Find and manage duplicate posts by title or slug. Allows deletion and 301 redirection with .htaccess code generation.
  * Version: 1.3
  * Author: Darren Kandekore

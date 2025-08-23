@@ -1,4 +1,4 @@
-=== Duplicate Post Manager ===
+=== Kandeshop Duplicate Post Manager ===
 Contributors: Darren Kandekore
 Tags: duplicate posts, redirect, 301, seo, htaccess
 Requires at least: 5.0
